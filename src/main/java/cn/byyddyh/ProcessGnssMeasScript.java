@@ -1,10 +1,13 @@
 package cn.byyddyh;
 
+import cn.byyddyh.dataProcess.ReadGnssLogger;
+
 public class ProcessGnssMeasScript {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         // 文件名
-        String prFileName = "pseudoranges_log_2021_08_23_16_21_00.txt";
+        String fileName = "pseudoranges_log_2021_08_23_16_21_00.txt";
         // 路径名
-        String dirName = "";
+        String dirName = "D:\\Programs";
+        ReadGnssLogger.ReadGnssLogger(dirName, fileName);
     }
 }
