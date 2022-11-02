@@ -4,10 +4,7 @@ import cn.byyddyh.dataModel.GNSSAnalysis;
 import cn.byyddyh.dataModel.GNSSRaw;
 import cn.byyddyh.utils.MathUtils;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -17,16 +14,23 @@ import java.util.List;
 import java.util.Locale;
 
 public class ReadGnssLogger {
-    private GNSSRaw gnssRaw;
-    private GNSSAnalysis gnssAnalysis;
+    private static final GNSSRaw gnssRaw;
 
-    private static List<String> allowFiles = Arrays.asList(".txt", ".csv");
+    private static GNSSAnalysis gnssAnalysis;
 
-    public ReadGnssLogger() {
+    private static String[] header;
+
+    private static DataFilter dataFilter;
+
+    private static final List<String> allowFiles = Arrays.asList(".txt", ".csv");
+
+    static  {
         gnssRaw = new GNSSRaw();
         gnssAnalysis = new GNSSAnalysis();
         gnssAnalysis.setGnssClockErrors("GnssClock Errors.");
         gnssAnalysis.setGnssMeasurementErrors("GnssMeasurement Errors.");
+
+        dataFilter = new DataFilter();
     }
 
     public static void ReadGnssLogger(String dirName, String fileName) throws Exception {
@@ -36,7 +40,20 @@ public class ReadGnssLogger {
             throw new Exception("Expecting file name of the form \"*.txt\", or \"*.csv");
         }
 
+        // 将日志文件读入数字矩阵 S 和单元格数组 header
         String rawCsvFile = makeCsv(dirName, fileName);
+        GNSSRaw rawCsv = readRawCsv(rawCsvFile);
+
+        // 应用 dataFilter
+        filterData(rawCsv);
+
+        // 将数据打包到gnssRaw结构中
+        // TODO: 可能后续需要进行优化
+
+        // 检查时钟和测量值
+        CheckGnssClock();
+
+
     }
 
     private static boolean checkFileType(String fileName) {
@@ -170,6 +187,269 @@ public class ReadGnssLogger {
         return csvFileName;
     }
 
+    /**
+     * 读取原始的星历数据
+     */
+    private static GNSSRaw readRawCsv(String rawCsvFile) {
+        // 读Header
+        File csv = new File(rawCsvFile);
+        csv.setReadable(true);
+        csv.setWritable(true);
+        InputStreamReader isr = null;
+        BufferedReader br = null;
+        try {
+            isr = new InputStreamReader(Files.newInputStream(csv.toPath()), StandardCharsets.UTF_8);
+            br = new BufferedReader(isr);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Error("file " + rawCsvFile + " not found");
+        }
+        String line = "";
+        GNSSRaw gnssRaw = new GNSSRaw();
+        try {
+            // 处理标题头
+            line = br.readLine();
+            System.out.println("Header \t\t" + line);
+            if (!line.contains("TimeNanos")) {
+                throw new Error("\"TimeNanos\" string not found in file ");
+            }
+            header = line.split(",");
+
+            // 处理内容 我们将TimeNanos和FullBiasNanos作为int64，将其他值作为double，将空值作为null
+            String preLine = "";
+            while ((line = br.readLine()) != null) {
+                String[] strings = line.split(",");
+                gnssRaw.ElapsedRealtimeMillis.add("".equals(strings[0])? null: Double.parseDouble(strings[0]));
+                gnssRaw.TimeNanos.add("".equals(strings[1])? null: Long.parseLong(strings[1]));
+                gnssRaw.LeapSecond.add("".equals(strings[2])? null: Double.parseDouble(strings[2]));
+                gnssRaw.TimeUncertaintyNanos.add("".equals(strings[3])? null: Double.parseDouble(strings[3]));
+                gnssRaw.FullBiasNanos.add("".equals(strings[4])? null: Long.parseLong(strings[4]));
+                gnssRaw.BiasNanos.add("".equals(strings[5])? null: Double.parseDouble(strings[5]));
+                gnssRaw.BiasUncertaintyNanos.add("".equals(strings[6])? null: Double.parseDouble(strings[6]));
+                gnssRaw.DriftNanosPerSecond.add("".equals(strings[7])? null: Double.parseDouble(strings[7]));
+                gnssRaw.DriftUncertaintyNanosPerSecond.add("".equals(strings[8])? null: Double.parseDouble(strings[8]));
+                gnssRaw.HardwareClockDiscontinuityCount.add("".equals(strings[9])? null: Double.parseDouble(strings[9]));
+                gnssRaw.Svid.add("".equals(strings[10])? null: Double.parseDouble(strings[10]));
+                gnssRaw.TimeOffsetNanos.add("".equals(strings[11])? null: Double.parseDouble(strings[11]));
+                gnssRaw.State.add("".equals(strings[12])? null: Long.parseLong(strings[12]));
+                gnssRaw.ReceivedSvTimeNanos.add("".equals(strings[13])? null: Long.parseLong(strings[13]));
+                gnssRaw.ReceivedSvTimeUncertaintyNanos.add("".equals(strings[14])? null: Long.parseLong(strings[14]));
+                gnssRaw.Cn0DbHz.add("".equals(strings[15])? null: Double.parseDouble(strings[15]));
+                gnssRaw.PseudorangeRateMetersPerSecond.add("".equals(strings[16])? null: Double.parseDouble(strings[16]));
+                gnssRaw.PseudorangeRateUncertaintyMetersPerSecond.add("".equals(strings[17])? null: Double.parseDouble(strings[17]));
+                gnssRaw.AccumulatedDeltaRangeState.add("".equals(strings[18])? null: Double.parseDouble(strings[18]));
+                gnssRaw.AccumulatedDeltaRangeMeters.add("".equals(strings[19])? null: Double.parseDouble(strings[19]));
+                gnssRaw.AccumulatedDeltaRangeUncertaintyMeters.add("".equals(strings[20])? null: Double.parseDouble(strings[20]));
+                gnssRaw.CarrierFrequencyHz.add("".equals(strings[21])? null: Double.parseDouble(strings[21]));
+                gnssRaw.CarrierCycles.add("".equals(strings[22])? null: Long.parseLong(strings[22]));
+//                gnssRaw.CarrierPhase.add("".equals(strings[23])? null: Double.parseDouble(strings[23]));
+//                gnssRaw.CarrierPhaseUncertainty.add("".equals(strings[24])? null: Double.parseDouble(strings[24]));
+                gnssRaw.MultipathIndicator.add("".equals(strings[25])? null: Double.parseDouble(strings[25]));
+//                gnssRaw.SnrInDb.add("".equals(strings[26])? null: Double.parseDouble(strings[26]));
+                gnssRaw.ConstellationType.add("".equals(strings[27])? null: Long.parseLong(strings[27]));
+                gnssRaw.AgcDb.add("".equals(strings[28])? null: Double.parseDouble(strings[28]));
+            }
+            System.out.println(preLine);
+            System.out.println(gnssRaw.TimeUncertaintyNanos.size());
+            System.out.println(gnssRaw.FullBiasNanos.size());
+            System.out.println(gnssRaw.BiasNanos.size());
+            System.out.println(gnssRaw.BiasUncertaintyNanos.size());
+            System.out.println(gnssRaw.DriftNanosPerSecond.size());
+            System.out.println(gnssRaw.DriftUncertaintyNanosPerSecond.size());
+            System.out.println(gnssRaw.HardwareClockDiscontinuityCount.size());
+            System.out.println(gnssRaw.Svid.size());
+            System.out.println(gnssRaw.TimeOffsetNanos.size());
+            System.out.println(gnssRaw.State.size());
+            System.out.println(gnssRaw.ReceivedSvTimeNanos.size());
+            System.out.println(gnssRaw.ReceivedSvTimeUncertaintyNanos.size());
+            System.out.println(gnssRaw.Cn0DbHz.size());
+            System.out.println(gnssRaw.PseudorangeRateMetersPerSecond.size());
+            System.out.println(gnssRaw.PseudorangeRateUncertaintyMetersPerSecond.size());
+            System.out.println(gnssRaw.AccumulatedDeltaRangeState.size());
+            System.out.println(gnssRaw.AccumulatedDeltaRangeMeters.size());
+            System.out.println(gnssRaw.AccumulatedDeltaRangeUncertaintyMeters.size());
+            System.out.println(gnssRaw.CarrierFrequencyHz.size());
+            System.out.println(gnssRaw.CarrierCycles.size());
+            System.out.println(gnssRaw.MultipathIndicator.size());
+            System.out.println(gnssRaw.ConstellationType.size());
+            System.out.println(gnssRaw.AgcDb.size());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return gnssRaw;
+    }
+
+    /**
+     * 对输入的原始数据进行完整性检验
+     */
+    private static void filterData(GNSSRaw rawCsv) {
+        List<String> needData = Arrays.asList("FullBiasNanos", "ConstellationType", "State");
+
+        // 校验 header 中是否包含指定字段，因为我们的目的就是为了校验这些数值
+        for (String str :needData) {
+            boolean existFlag = false;
+            for (String headerVal :header) {
+                if (str.equals(headerVal)) {
+                    existFlag = true;
+                    break;
+                }
+            }
+
+            if (!existFlag) {
+                throw new Error("str not found in header");
+            }
+        }
+
+        for (int i = 0; i < rawCsv.State.size(); i++) {
+            boolean bOK = true;
+            // 校验 FullBiasNanos
+            if (!dataFilter.nanosCheck(rawCsv.FullBiasNanos.get(i))) {
+                bOK = false;
+            }
+
+            // 校验 ConstellationType
+            if (!dataFilter.ConstellationTypeCheck(rawCsv.ConstellationType.get(i))) {
+                bOK = false;
+            }
+
+            // 校验 State
+            if (!dataFilter.stateCheck(rawCsv.State.get(i))) {
+                bOK = false;
+            }
+
+            if (bOK) {
+                gnssRaw.ElapsedRealtimeMillis.add(rawCsv.ElapsedRealtimeMillis.get(i));
+                gnssRaw.TimeNanos.add(rawCsv.TimeNanos.get(i));
+                gnssRaw.LeapSecond.add(rawCsv.LeapSecond.get(i));
+                gnssRaw.TimeUncertaintyNanos.add(rawCsv.TimeUncertaintyNanos.get(i));
+                gnssRaw.FullBiasNanos.add(rawCsv.FullBiasNanos.get(i));
+                gnssRaw.BiasNanos.add(rawCsv.BiasNanos.get(i));
+                gnssRaw.BiasUncertaintyNanos.add(rawCsv.BiasUncertaintyNanos.get(i));
+                gnssRaw.DriftNanosPerSecond.add(rawCsv.DriftNanosPerSecond.get(i));
+                gnssRaw.DriftUncertaintyNanosPerSecond.add(rawCsv.DriftUncertaintyNanosPerSecond.get(i));
+                gnssRaw.HardwareClockDiscontinuityCount.add(rawCsv.HardwareClockDiscontinuityCount.get(i));
+                gnssRaw.Svid.add(rawCsv.Svid.get(i));
+                gnssRaw.TimeOffsetNanos.add(rawCsv.TimeOffsetNanos.get(i));
+                gnssRaw.State.add(rawCsv.State.get(i));
+                gnssRaw.ReceivedSvTimeNanos.add(rawCsv.ReceivedSvTimeNanos.get(i));
+                gnssRaw.ReceivedSvTimeUncertaintyNanos.add(rawCsv.ReceivedSvTimeUncertaintyNanos.get(i));
+                gnssRaw.Cn0DbHz.add(rawCsv.Cn0DbHz.get(i));
+                gnssRaw.PseudorangeRateMetersPerSecond.add(rawCsv.PseudorangeRateMetersPerSecond.get(i));
+                gnssRaw.PseudorangeRateUncertaintyMetersPerSecond.add(rawCsv.PseudorangeRateUncertaintyMetersPerSecond.get(i));
+                gnssRaw.AccumulatedDeltaRangeState.add(rawCsv.AccumulatedDeltaRangeState.get(i));
+                gnssRaw.AccumulatedDeltaRangeMeters.add(rawCsv.AccumulatedDeltaRangeMeters.get(i));
+                gnssRaw.AccumulatedDeltaRangeUncertaintyMeters.add(rawCsv.AccumulatedDeltaRangeUncertaintyMeters.get(i));
+                gnssRaw.CarrierFrequencyHz.add(rawCsv.CarrierFrequencyHz.get(i));
+                gnssRaw.CarrierCycles.add(rawCsv.CarrierCycles.get(i));
+//                gnssRaw.CarrierPhase.add(rawCsv.CarrierPhase.get(i));
+//                gnssRaw.CarrierPhaseUncertainty.add(rawCsv.CarrierPhaseUncertainty.get(i));
+                gnssRaw.MultipathIndicator.add(rawCsv.MultipathIndicator.get(i));
+//                gnssRaw.SnrInDb.add(rawCsv.SnrInDb.get(i));
+                gnssRaw.ConstellationType.add(rawCsv.ConstellationType.get(i));
+                gnssRaw.AgcDb.add(rawCsv.AgcDb.get(i));
+            }
+        }
+
+        System.out.println(gnssRaw.AgcDb.size());
+        if (gnssRaw.State.size() == 0) {
+            throw new Error("All measurements removed. Specify dataFilter less strictly");
+        }
+    }
+
+    /**
+     * 校验时钟信息
+     */
+    private static void CheckGnssClock() {
+        // 检查gnssRaw中的时钟值
+        boolean bOK = true;
+
+        // 初始化字符串以记录失败消息
+        StringBuilder sFail = new StringBuilder();
+        int N = gnssRaw.ReceivedSvTimeNanos.size();
+
+        // 校验 TimeNanos
+        boolean failFlag = true;
+        for (String str :header) {
+            if ("TimeNanos".equals(str)) {
+                failFlag = false;
+                break;
+            }
+        }
+        if (failFlag) {
+            sFail.append(" TimeNanos  missing from GnssLogger File.");
+            System.out.println("WARNING: TimeNanos  missing from GnssLogger File.");
+            bOK = false;
+        }
+
+        // 校验 FullBiasNanos
+        failFlag = true;
+        for (String str :header) {
+            if ("FullBiasNanos".equals(str)) {
+                failFlag = false;
+                break;
+            }
+        }
+        if (failFlag) {
+            sFail.append(" FullBiasNanos missing from GnssLogger file.");
+            System.out.println("WARNING: FullBiasNanos missing from GnssLogger file.");
+            bOK = false;
+        }
+
+        // 校验 BiasNanos
+        failFlag = true;
+        for (String str :header) {
+            if ("BiasNanos".equals(str)) {
+                failFlag = false;
+                break;
+            }
+        }
+        if (failFlag) {
+            gnssRaw.BiasNanos = new ArrayList<>(gnssRaw.FullBiasNanos.size());
+        }
+
+        // 校验 HardwareClockDiscontinuityCount
+        failFlag = true;
+        for (String str :header) {
+            if ("HardwareClockDiscontinuityCount".equals(str)) {
+                failFlag = false;
+                break;
+            }
+        }
+        if (failFlag) {
+            gnssRaw.HardwareClockDiscontinuityCount = new ArrayList<>(gnssRaw.FullBiasNanos.size());
+            System.out.println("WARNING: Added HardwareClockDiscontinuityCount=0 because it is missing from GNSS Logger file");
+        }
+
+        // check FullBiasNanos, it should be negative values
+        failFlag = false;
+        for (Long data: gnssRaw.FullBiasNanos) {
+            if (data > 0) {
+                failFlag = true;
+                break;
+            }
+        }
+        if (failFlag) {
+            throw new Error("FullBiasNanos changes sign within log file, this should never happen");
+        }
+
+        // 计算测量的全周期时间，以毫秒为单位
+        for (int i = 0; i < gnssRaw.TimeNanos.size(); i++) {
+            gnssRaw.allRxMillis.add((long) ((gnssRaw.TimeNanos.get(i) - gnssRaw.FullBiasNanos.get(i)) * 1.0E-6));
+        }
+
+        if (!bOK){
+            gnssAnalysis.setApiPassFail("FAIL " + sFail);
+        }
+    }
+
+    /**
+     * 报告缺失字段
+     */
+    private static void ReportMissingFields() {
+
+    }
+
     private static String CompareVersions(List<Integer> version, List<Integer> versionCom) {
         if (version.size() != versionCom.size()) {
             throw new Error("The two inputs must be scalars or vectors of the same length");
@@ -192,8 +472,24 @@ public class ReadGnssLogger {
         System.out.println(file);
         System.out.println(file.canRead());
 
-        String str = "# Version: v2.0.0.1 Platform: 10 Manufacturer: HUAWEI Model: TAS-AN00";
-        Integer index = str.indexOf("Platformx");
-        System.out.println(index);
+
+        String str = "502470145,1025486443774,18,0.0,-1313741200513292546,0.0,333.564095198152,225.03089506113173,0.0,3,193,0.0,0,0,7,0.0,439.17582375926764,0.05,16,0.0,0.1,1.57542003E9,,,,0,,4,3.0,1.57542003E9";
+        String[] strings = str.split(",");
+        System.out.println("length:" + strings.length);
+        for (int i = 0; i < strings.length; i++) {
+            System.out.println("index:" + i + " record:" + strings[i] + ".");
+            if ("".equals(strings[i])) {
+                System.out.println("index:" + i);
+            }
+        }
+
+        Long data = 16399L;
+        System.out.println(dataFilter.stateCheck(data));
+
+        data = 1L;
+        System.out.println(dataFilter.ConstellationTypeCheck(data));
+
+        data = -1313741200513326082L;
+        System.out.println(dataFilter.nanosCheck(data));
     }
 }

@@ -4,33 +4,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GNSSRaw {
-    private List<Double> ElapsedRealtimeMillis;
-    private List<Integer> TimeNanos;
-    private List<Double> LeapSecond;
-    private List<Double> TimeUncertaintyNanos;
-    private List<Integer> FullBiasNanos;
-    private List<Double> BiasNanos;
-    private List<Double> BiasUncertaintyNanos;
-    private List<Double> DriftNanosPerSecond;
-    private List<Double> DriftUncertaintyNanosPerSecond;
-    private List<Double> HardwareClockDiscontinuityCount;
-    private List<Double> Svid;
-    private List<Double> TimeOffsetNanos;
-    private List<Double> State;
-    private List<Integer> ReceivedSvTimeNanos;
-    private List<Integer> ReceivedSvTimeUncertaintyNanos;
-    private List<Double> Cn0DbHz;
-    private List<Double> PseudorangeRateMetersPerSecond;
-    private List<Double> PseudorangeRateUncertaintyMetersPerSecond;
-    private List<Double> AccumulatedDeltaRangeState;
-    private List<Double> AccumulatedDeltaRangeMeters;
-    private List<Double> AccumulatedDeltaRangeUncertaintyMeters;
-    private List<Double> CarrierFrequencyHz;
-    private List<Integer> CarrierCycles;
-    private List<Double> MultipathIndicator;
-    private List<Double> ConstellationType;
-    private List<Double> AgcDb;
-    private List<Integer> allRxMillis;
+    public List<Double> ElapsedRealtimeMillis;
+    public List<Long> TimeNanos;
+    public List<Double> LeapSecond;
+    public List<Double> TimeUncertaintyNanos;
+    public List<Long> FullBiasNanos;
+    public List<Double> BiasNanos;
+    public List<Double> BiasUncertaintyNanos;
+    public List<Double> DriftNanosPerSecond;
+    public List<Double> DriftUncertaintyNanosPerSecond;
+    public List<Double> HardwareClockDiscontinuityCount;
+    public List<Double> Svid;
+    public List<Double> TimeOffsetNanos;
+    public List<Long> State;
+    public List<Long> ReceivedSvTimeNanos;
+    public List<Long> ReceivedSvTimeUncertaintyNanos;
+    public List<Double> Cn0DbHz;
+    public List<Double> PseudorangeRateMetersPerSecond;
+    public List<Double> PseudorangeRateUncertaintyMetersPerSecond;
+    public List<Double> AccumulatedDeltaRangeState;
+    public List<Double> AccumulatedDeltaRangeMeters;
+    public List<Double> AccumulatedDeltaRangeUncertaintyMeters;
+    public List<Double> CarrierFrequencyHz;
+    public List<Long> CarrierCycles;
+    public List<Double> MultipathIndicator;
+    public List<Long> ConstellationType;
+    public List<Double> AgcDb;
+    public List<Long> allRxMillis;
 
     public GNSSRaw() {
         ElapsedRealtimeMillis = new ArrayList<>();
@@ -62,14 +62,14 @@ public class GNSSRaw {
         allRxMillis = new ArrayList<>();
     }
 
-    public GNSSRaw(List<Double> elapsedRealtimeMillis, List<Integer> timeNanos, List<Double> leapSecond,
-                   List<Double> timeUncertaintyNanos, List<Integer> fullBiasNanos, List<Double> biasNanos,
+    public GNSSRaw(List<Double> elapsedRealtimeMillis, List<Long> timeNanos, List<Double> leapSecond,
+                   List<Double> timeUncertaintyNanos, List<Long> fullBiasNanos, List<Double> biasNanos,
                    List<Double> biasUncertaintyNanos, List<Double> driftNanosPerSecond, List<Double> driftUncertaintyNanosPerSecond,
-                   List<Double> hardwareClockDiscontinuityCount, List<Double> svid, List<Double> timeOffsetNanos, List<Double> state,
-                   List<Integer> receivedSvTimeNanos, List<Integer> receivedSvTimeUncertaintyNanos, List<Double> cn0DbHz,
+                   List<Double> hardwareClockDiscontinuityCount, List<Double> svid, List<Double> timeOffsetNanos, List<Long> state,
+                   List<Long> receivedSvTimeNanos, List<Long> receivedSvTimeUncertaintyNanos, List<Double> cn0DbHz,
                    List<Double> pseudorangeRateMetersPerSecond, List<Double> pseudorangeRateUncertaintyMetersPerSecond, List<Double> accumulatedDeltaRangeState,
                    List<Double> accumulatedDeltaRangeMeters, List<Double> accumulatedDeltaRangeUncertaintyMeters, List<Double> carrierFrequencyHz,
-                   List<Integer> carrierCycles, List<Double> multipathIndicator, List<Double> constellationType, List<Double> agcDb, List<Integer> allRxMillis) {
+                   List<Long> carrierCycles, List<Double> multipathIndicator, List<Long> constellationType, List<Double> agcDb, List<Long> allRxMillis) {
         this.ElapsedRealtimeMillis = elapsedRealtimeMillis;
         this.TimeNanos = timeNanos;
         this.LeapSecond = leapSecond;
