@@ -10,6 +10,20 @@ import java.util.Random;
  * 工具类
  */
 public class MathUtils {
+    private static final BigDecimal BIG_DECIMAL_TEMP = new BigDecimal("0.5");
+
+    /**
+     * double 转换为 long
+     */
+    public static long bigDecimalToLong(String str) {
+        BigDecimal bigDecimal = new BigDecimal(str);
+        if (bigDecimal.compareTo(BigDecimal.ZERO) > 0) {
+            return bigDecimal.add(BIG_DECIMAL_TEMP).longValue();
+        } else {
+            return bigDecimal.subtract(BIG_DECIMAL_TEMP).longValue();
+        }
+    }
+
     /**
      * 对应matlab中sign
      */

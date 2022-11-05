@@ -5,6 +5,7 @@ import cn.byyddyh.dataModel.GNSSRaw;
 import cn.byyddyh.utils.MathUtils;
 
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -33,7 +34,7 @@ public class ReadGnssLogger {
         dataFilter = new DataFilter();
     }
 
-    public static void ReadGnssLogger(String dirName, String fileName) throws Exception {
+    public static GNSSRaw ReadGnssLogger(String dirName, String fileName) throws Exception {
         String extension = fileName.substring(fileName.length() - 3, fileName.length());
 
         if (!checkFileType(fileName)) {
@@ -53,7 +54,11 @@ public class ReadGnssLogger {
         // 检查时钟和测量值
         CheckGnssClock();
 
+        // 报告缺失值
+        ReportMissingFields();
+        System.out.println(gnssAnalysis.getApiPassFail());
 
+        return gnssRaw;
     }
 
     private static boolean checkFileType(String fileName) {
@@ -217,13 +222,18 @@ public class ReadGnssLogger {
 
             // 处理内容 我们将TimeNanos和FullBiasNanos作为int64，将其他值作为double，将空值作为null
             String preLine = "";
+            int i = 0;
             while ((line = br.readLine()) != null) {
+                ++i;
+                if (i == 8133) {
+                    System.out.println("");
+                }
                 String[] strings = line.split(",");
                 gnssRaw.ElapsedRealtimeMillis.add("".equals(strings[0])? null: Double.parseDouble(strings[0]));
-                gnssRaw.TimeNanos.add("".equals(strings[1])? null: Long.parseLong(strings[1]));
+                gnssRaw.TimeNanos.add("".equals(strings[1])? null: MathUtils.bigDecimalToLong(strings[1]));
                 gnssRaw.LeapSecond.add("".equals(strings[2])? null: Double.parseDouble(strings[2]));
                 gnssRaw.TimeUncertaintyNanos.add("".equals(strings[3])? null: Double.parseDouble(strings[3]));
-                gnssRaw.FullBiasNanos.add("".equals(strings[4])? null: Long.parseLong(strings[4]));
+                gnssRaw.FullBiasNanos.add("".equals(strings[4])? null: MathUtils.bigDecimalToLong(strings[4]));
                 gnssRaw.BiasNanos.add("".equals(strings[5])? null: Double.parseDouble(strings[5]));
                 gnssRaw.BiasUncertaintyNanos.add("".equals(strings[6])? null: Double.parseDouble(strings[6]));
                 gnssRaw.DriftNanosPerSecond.add("".equals(strings[7])? null: Double.parseDouble(strings[7]));
@@ -231,9 +241,9 @@ public class ReadGnssLogger {
                 gnssRaw.HardwareClockDiscontinuityCount.add("".equals(strings[9])? null: Double.parseDouble(strings[9]));
                 gnssRaw.Svid.add("".equals(strings[10])? null: Double.parseDouble(strings[10]));
                 gnssRaw.TimeOffsetNanos.add("".equals(strings[11])? null: Double.parseDouble(strings[11]));
-                gnssRaw.State.add("".equals(strings[12])? null: Long.parseLong(strings[12]));
-                gnssRaw.ReceivedSvTimeNanos.add("".equals(strings[13])? null: Long.parseLong(strings[13]));
-                gnssRaw.ReceivedSvTimeUncertaintyNanos.add("".equals(strings[14])? null: Long.parseLong(strings[14]));
+                gnssRaw.State.add("".equals(strings[12])? null: MathUtils.bigDecimalToLong(strings[12]));
+                gnssRaw.ReceivedSvTimeNanos.add("".equals(strings[13])? null: MathUtils.bigDecimalToLong(strings[13]));
+                gnssRaw.ReceivedSvTimeUncertaintyNanos.add("".equals(strings[14])? null: MathUtils.bigDecimalToLong(strings[14]));
                 gnssRaw.Cn0DbHz.add("".equals(strings[15])? null: Double.parseDouble(strings[15]));
                 gnssRaw.PseudorangeRateMetersPerSecond.add("".equals(strings[16])? null: Double.parseDouble(strings[16]));
                 gnssRaw.PseudorangeRateUncertaintyMetersPerSecond.add("".equals(strings[17])? null: Double.parseDouble(strings[17]));
@@ -241,12 +251,12 @@ public class ReadGnssLogger {
                 gnssRaw.AccumulatedDeltaRangeMeters.add("".equals(strings[19])? null: Double.parseDouble(strings[19]));
                 gnssRaw.AccumulatedDeltaRangeUncertaintyMeters.add("".equals(strings[20])? null: Double.parseDouble(strings[20]));
                 gnssRaw.CarrierFrequencyHz.add("".equals(strings[21])? null: Double.parseDouble(strings[21]));
-                gnssRaw.CarrierCycles.add("".equals(strings[22])? null: Long.parseLong(strings[22]));
+                gnssRaw.CarrierCycles.add("".equals(strings[22])? null: MathUtils.bigDecimalToLong(strings[22]));
 //                gnssRaw.CarrierPhase.add("".equals(strings[23])? null: Double.parseDouble(strings[23]));
 //                gnssRaw.CarrierPhaseUncertainty.add("".equals(strings[24])? null: Double.parseDouble(strings[24]));
                 gnssRaw.MultipathIndicator.add("".equals(strings[25])? null: Double.parseDouble(strings[25]));
 //                gnssRaw.SnrInDb.add("".equals(strings[26])? null: Double.parseDouble(strings[26]));
-                gnssRaw.ConstellationType.add("".equals(strings[27])? null: Long.parseLong(strings[27]));
+                gnssRaw.ConstellationType.add("".equals(strings[27])? null: MathUtils.bigDecimalToLong(strings[27]));
                 gnssRaw.AgcDb.add("".equals(strings[28])? null: Double.parseDouble(strings[28]));
             }
             System.out.println(preLine);
@@ -435,7 +445,14 @@ public class ReadGnssLogger {
 
         // 计算测量的全周期时间，以毫秒为单位
         for (int i = 0; i < gnssRaw.TimeNanos.size(); i++) {
-            gnssRaw.allRxMillis.add((long) ((gnssRaw.TimeNanos.get(i) - gnssRaw.FullBiasNanos.get(i)) * 1.0E-6));
+//            gnssRaw.allRxMillis.add((gnssRaw.TimeNanos.get(i) - gnssRaw.FullBiasNanos.get(i)) / 1000000);
+            gnssRaw.allRxMillis.add(
+                    new BigDecimal(gnssRaw.TimeNanos.get(i))
+                            .subtract(new BigDecimal(gnssRaw.FullBiasNanos.get(i)))
+                            .divide(new BigDecimal(1000000))
+                            .add(new BigDecimal("0.5"))
+                            .longValue()
+            );
         }
 
         if (!bOK){
@@ -447,7 +464,69 @@ public class ReadGnssLogger {
      * 报告缺失字段
      */
     private static void ReportMissingFields() {
+        boolean bOk = true;
+        boolean failFlag = false;
 
+        // report missing clock fields
+        List<String> clockFields = Arrays.asList("TimeNanos",
+                "TimeUncertaintyNanos",
+                "LeapSecond",
+                "FullBiasNanos",
+                "BiasUncertaintyNanos",
+                "DriftNanosPerSecond",
+                "DriftUncertaintyNanosPerSecond",
+                "HardwareClockDiscontinuityCount",
+                "BiasNanos");
+        for (String clockField :clockFields) {
+            bOk = true;
+            for (String headerData :header) {
+                if (clockField.equals(headerData)) {
+                    bOk = false;
+                    break;
+                }
+            }
+
+            if (bOk) {
+                failFlag = true;
+                System.out.println(gnssAnalysis.getGnssClockErrors() + "\t Missing Fields:" + clockField);
+            }
+        }
+
+        // report missing measurement fields
+        List<String> measurementFields = Arrays.asList("Cn0DbHz",
+                "ConstellationType",
+                "MultipathIndicator",
+                "PseudorangeRateMetersPerSecond",
+                "PseudorangeRateUncertaintyMetersPerSecond",
+                "ReceivedSvTimeNanos",
+                "ReceivedSvTimeUncertaintyNanos",
+                "State",
+                "Svid",
+                "AccumulatedDeltaRangeMeters",
+                "AccumulatedDeltaRangeUncertaintyMeters");
+        for (String measurementField :measurementFields) {
+            bOk = true;
+            for (String headerData :header) {
+                if (measurementField.equals(headerData)) {
+                    bOk = false;
+                    break;
+                }
+            }
+
+            if (bOk) {
+                failFlag = true;
+                System.out.println(gnssAnalysis.getGnssMeasurementErrors() + "\t Missing Fields:" + measurementField);
+            }
+        }
+
+        // assign pass/fail
+        if (gnssAnalysis.getApiPassFail() == null || !gnssAnalysis.getApiPassFail().contains("FAIL")) {
+            if (failFlag) {
+                gnssAnalysis.setApiPassFail("FAIL BECAUSE OF MISSING FIELDS");
+            } else {
+                gnssAnalysis.setApiPassFail("PASS");
+            }
+        }
     }
 
     private static String CompareVersions(List<Integer> version, List<Integer> versionCom) {
@@ -491,5 +570,13 @@ public class ReadGnssLogger {
 
         data = -1313741200513326082L;
         System.out.println(dataFilter.nanosCheck(data));
+
+        System.out.println("===========================================================================");
+        String dataStr = "-1313741200513292546";
+        BigDecimal bigDecimal = new BigDecimal(dataStr);
+        System.out.println("bigDecimal:" + bigDecimal);
+        BigDecimal decimal = bigDecimal.add(new BigDecimal("0.5"));
+        long value = decimal.longValue();
+        System.out.println("value:" + value);
     }
 }
