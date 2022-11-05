@@ -6,12 +6,12 @@ import java.util.Arrays;
 import java.util.List;
 
 public class UtcTime {
-    private int year;
-    private int month;
-    private int day;
-    private int hour;
-    private int minute;
-    private int sec;
+    public int year;
+    public int month;
+    public int day;
+    public int hour;
+    public int minute;
+    public int sec;
 
     public UtcTime() {
     }
@@ -185,7 +185,7 @@ public class UtcTime {
     /**
      * days since GPS Epoch
      */
-    private static double[] julianDay(UtcTime... utcTimeList) {
+    public static double[] julianDay(UtcTime... utcTimeList) {
         UtcTime[] temp = new UtcTime[utcTimeList.length];
         double[] tableJDays = new double[utcTimeList.length];
 

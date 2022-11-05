@@ -1,7 +1,9 @@
 package cn.byyddyh;
 
 import cn.byyddyh.dataModel.GNSSRaw;
+import cn.byyddyh.dataModel.GnssGpsEph;
 import cn.byyddyh.dataModel.UtcTime;
+import cn.byyddyh.dataProcess.NasaEphemeris;
 import cn.byyddyh.dataProcess.ReadGnssLogger;
 
 public class ProcessGnssMeasScript {
@@ -24,6 +26,6 @@ public class ProcessGnssMeasScript {
         System.out.println("utcTime: \t\t" + utcTime);
 
         // Get hourly ephemeris files
-
+        NasaEphemeris.getNasaHourlyEphemeris(utcTime, dirName);
     }
 }
