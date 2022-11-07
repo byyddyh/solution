@@ -26,6 +26,10 @@ public class ProcessGnssMeasScript {
         System.out.println("utcTime: \t\t" + utcTime);
 
         // Get hourly ephemeris files
-        NasaEphemeris.getNasaHourlyEphemeris(utcTime, dirName);
+        GnssGpsEph gnssGpsEph = NasaEphemeris.getNasaHourlyEphemeris(utcTime, dirName);
+        System.out.println(gnssGpsEph);
+
+        // process raw measurements, compute pseudoranges
+
     }
 }

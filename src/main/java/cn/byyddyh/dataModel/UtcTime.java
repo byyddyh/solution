@@ -3,7 +3,6 @@ package cn.byyddyh.dataModel;
 import cn.byyddyh.utils.GpsConstants;
 
 import java.util.Arrays;
-import java.util.List;
 
 public class UtcTime {
     public int year;
@@ -15,6 +14,9 @@ public class UtcTime {
 
     public UtcTime() {
     }
+
+    private final static long HOURSEC = 3600;
+    private final static long MINSEC = 60;
 
     public UtcTime(int year, int month, int day, int hour, int minute, int sec) {
         this.year = year;
@@ -50,14 +52,53 @@ public class UtcTime {
         if (ls == ls1) {
             utcTime = timeMLs;
         } else {
-            utcTime = fct2Ymdhms(fctSeconds-ls1);
+            utcTime = fct2Ymdhms(fctSeconds - ls1);
         }
         return utcTime;
     }
 
-    private final static long HOURSEC = 3600;
-    private final static long MINSEC = 60;
-    private final static long[] monthDays = {31,28,31,30,31,30,31,31,30,31,30,31};
+    /**
+     * Convert the UTC date and time to GPS week & seconds
+     */
+    public static long[] utc2Gps(UtcTime... utcTime) {
+        long[] gpsTime = new long[2 * utcTime.length];
+
+        checkUtcTimeInputs(utcTime);
+        double[] julianDays = julianDay(utcTime);
+        System.out.println("julianDays: \t\t" + Arrays.toString(julianDays));
+
+        for (int i = 0; i < julianDays.length; ++i) {
+            int daysSinceEpoch = (int) (julianDays[i] - GpsConstants.GPSEPOCHJD);
+            long gpsWeek = (long) (daysSinceEpoch / 7.0);
+            System.out.println("\t\tdaysSinceEpoch:" + daysSinceEpoch + "   gpsWeek:" + gpsWeek);
+
+            int dayOfWeek = daysSinceEpoch % 7;
+            // calculate the number of seconds since Sunday at midnight
+            long gpsSeconds = dayOfWeek * GpsConstants.DAYSEC + utcTime[i].hour * HOURSEC + utcTime[i].minute * MINSEC + utcTime[i].sec;
+            System.out.println("\t\tgpsSeconds: " + gpsSeconds);
+            gpsWeek = (int) (gpsWeek + gpsSeconds * 1.0 / GpsConstants.WEEKSEC);
+            gpsSeconds = gpsSeconds % GpsConstants.WEEKSEC;
+
+            // now add leapSeconds
+            long fctSeconds = gpsWeek * GpsConstants.WEEKSEC + gpsSeconds + leapSeconds(utcTime[i]);
+
+            // when a leap second happens, utc time stands still for one second,
+            // so gps seconds get further ahead, so we add leapsecs in going to gps time
+            gpsWeek = (long) (fctSeconds * 1.0 / GpsConstants.WEEKSEC);
+            if (gpsWeek == 0) {
+                gpsSeconds = fctSeconds;
+            } else {
+                gpsSeconds = fctSeconds % (gpsWeek * GpsConstants.WEEKSEC);
+            }
+
+            gpsTime[i] = gpsWeek;
+            gpsTime[i + utcTime.length] = gpsSeconds;
+        }
+
+        return gpsTime;
+    }
+
+    private final static long[] monthDays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
     /**
      * 工具类
@@ -78,7 +119,7 @@ public class UtcTime {
             // leap = 1 on a leap year, 0 otherwise
             // This works from 1901 till 2099, 2100 isn't a leap year (2000 is).
             // Calculate the year, ie time(1)
-            leap = years % 4 == 0? 1: 0;
+            leap = years % 4 == 0 ? 1 : 0;
         }
 
         UtcTime time = new UtcTime();
@@ -142,7 +183,7 @@ public class UtcTime {
     private static double[] tableJDays;
     private static double[] tableSeconds;
 
-    static  {
+    static {
         tableJDays = julianDay(utcTable);
         tableSeconds = new double[utcTable.length];
 
@@ -169,8 +210,6 @@ public class UtcTime {
             jDay[i] = jDay[i] - GpsConstants.GPSEPOCHJD;
             timeSeconds[i] = jDay[i] * GpsConstants.DAYSEC;
         }
-        System.out.println("jDay: \t" + Arrays.toString(jDay));
-        System.out.println("jDay: \t" + Arrays.toString(timeSeconds));
 
         int leapSecs = 0;
         for (double tableSecond : tableSeconds) {
@@ -188,9 +227,12 @@ public class UtcTime {
     public static double[] julianDay(UtcTime... utcTimeList) {
         UtcTime[] temp = new UtcTime[utcTimeList.length];
         double[] tableJDays = new double[utcTimeList.length];
+        double[] hours = new double[utcTimeList.length];
 
         for (int i = 0; i < temp.length; i++) {
             UtcTime data = new UtcTime();
+            hours[i] = utcTimeList[i].hour + utcTimeList[i].minute / 60.0 + utcTimeList[i].sec / 3600.0;
+
             if (utcTimeList[i].month <= 2) {
                 data.month = utcTimeList[i].month + 12;
                 data.year = utcTimeList[i].year - 1;
@@ -198,16 +240,47 @@ public class UtcTime {
                 data.month = utcTimeList[i].month;
                 data.year = utcTimeList[i].year;
             }
+
             data.day = utcTimeList[i].day;
             data.hour = utcTimeList[i].hour;
             temp[i] = data;
 
-            System.out.println(temp[i]);
-
-            tableJDays[i] = Math.floor(365.25 * temp[i].year) + Math.floor(30.6001 * (temp[i].month + 1))  - 15 + 1720996.5 + temp[i].day + temp[i].hour / 24.0;
+            tableJDays[i] = Math.floor(365.25 * temp[i].year) + Math.floor(30.6001 * (temp[i].month + 1)) - 15 + 1720996.5 + temp[i].day + hours[i] / 24;
         }
 
         return tableJDays;
+    }
+
+    /**
+     * utility function for Utc2Gps
+     */
+    private static void checkUtcTimeInputs(UtcTime... utcTime) {
+        // 校验输入
+        for (UtcTime time : utcTime) {
+            if (time.year < 1980 || time.year > 2099) {
+                throw new Error("year must have values in the range: [1980:2099]");
+            }
+
+            if (time.month < 1 || time.month > 12) {
+                throw new Error("The month in utcTime must be a number in the set [1:12]");
+            }
+
+            if (time.day < 1 || time.day > 31) {
+                throw new Error("The day in utcTime must be a number in the set [1:31]");
+            }
+
+            if (time.hour < 0 || time.hour >= 24) {
+                throw new Error("The hour in utcTime must be in the range [0,24)");
+            }
+
+            if (time.minute < 0 || time.minute >= 60) {
+                throw new Error("The minutes in utcTime must be in the range [0,60)");
+            }
+
+            if (time.sec < 0 || time.sec > 60) {
+                throw new Error("The seconds in utcTime must be in the range [0,60]");
+            }
+        }
     }
 
     @Override
@@ -223,7 +296,19 @@ public class UtcTime {
     }
 
     public static void main(String[] args) {
-        System.out.println(Arrays.toString(tableJDays));
-        System.out.println(Arrays.toString(tableSeconds));
+        UtcTime[] utcTimes = {new UtcTime(2021, 8, 23, 0, 0, 0),
+                new UtcTime(2023, 12, 25, 0, 0, 0),
+                new UtcTime(2050, 12, 28, 0, 0, 0)};
+
+        System.out.println(Arrays.toString(julianDay(utcTimes)));
+        System.out.println(Arrays.toString(utc2Gps(utcTimes)));
+
+        int N = 30;
+        UtcTime[] utcTimes1 = new UtcTime[30];
+        for (int i = 0; i < N; i++) {
+            UtcTime utcTime = new UtcTime(2050, 12, i+1, 0, 0, 0);
+            utcTimes1[i] = utcTime;
+        }
+        System.out.println(Arrays.toString(utc2Gps(utcTimes1)));
     }
 }

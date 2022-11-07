@@ -25,7 +25,7 @@ public class NasaEphemeris {
         gnssGpsEph = new GnssGpsEph();
     }
 
-    public static void getNasaHourlyEphemeris(UtcTime utcTime, String dirName) throws IOException {
+    public static GnssGpsEph getNasaHourlyEphemeris(UtcTime utcTime, String dirName) throws IOException {
         dirName = checkInputs(dirName);
         int yearNumber4Digit = utcTime.year;
         int yearNumber2Digit = yearNumber4Digit % 100;
@@ -61,6 +61,77 @@ public class NasaEphemeris {
         /*用于读取标题行并查找iono参数*/
         Iono iono = readIono(nasaLines, rinexNav[1]);
         System.out.println(iono);
+
+        /*初始化星历表结构*/
+        int index = rinexNav[1];
+        int num = 0;
+        String line = "";
+        for (int i = 0; i < rinexNav[0]; i++) {
+            line = nasaLines.get(index++);
+            gnssGpsEph.PRN.add(Integer.parseInt(line.substring(0, 2).trim()));
+            int year = Integer.parseInt(line.substring(2, 6).trim());
+            if (year < 80) {
+                year += 2000;
+            } else {
+                year += 1900;
+            }
+            int month = Integer.parseInt(line.substring(6, 9).trim());
+            int day = Integer.parseInt(line.substring(9, 12).trim());
+            int hour = Integer.parseInt(line.substring(12, 15).trim());
+            int minute = Integer.parseInt(line.substring(15, 18).trim());
+            int second = (int) Double.parseDouble(line.substring(18, 22).trim());
+
+            // convert Toc to gpsTime
+            long[] gpsTime = UtcTime.utc2Gps(new UtcTime(year, month, day, hour, minute, second));
+            gnssGpsEph.Toc.add((int) gpsTime[1]);
+
+            // get all other parameters
+            gnssGpsEph.af0.add(new BigDecimal(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.af1.add(new BigDecimal(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.af2.add(new BigDecimal(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.IODE.add((int) Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.Crs.add(Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.Delta_n.add(new BigDecimal(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.M0.add(Double.parseDouble(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.Cuc.add(new BigDecimal(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.e.add(Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.Cus.add(new BigDecimal(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.Asqrt.add(new BigDecimal(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.Toe.add((int) Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.Cic.add(new BigDecimal(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.OMEGA.add(Double.parseDouble(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.Cis.add(new BigDecimal(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.i0.add(Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.Crc.add(Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.omega.add(Double.parseDouble(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.OMEGA_DOT.add(new BigDecimal(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.IDOT.add(new BigDecimal(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.codeL2.add((int) Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.GPS_Week.add((int) Double.parseDouble(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.L2Pdata.add((int) Double.parseDouble(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.accuracy.add(Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.health.add((int) Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.TGD.add(new BigDecimal(line.substring(41, 60).replace('D', 'E').trim()));
+            gnssGpsEph.IODC.add((int) Double.parseDouble(line.substring(60, 79).replace('D', 'E').trim()));
+
+            line = nasaLines.get(index++);
+            gnssGpsEph.ttx.add((int) Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
+            gnssGpsEph.Fix_interval.add((int) Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+        }
+
+        return gnssGpsEph;
     }
 
     /**
@@ -157,7 +228,7 @@ public class NasaEphemeris {
 
                 for (String value : strings) {
                     if (value.length() != 0) {
-                        iono.alpha.add(value);
+                        iono.alpha.add(new BigDecimal(value.replace('D', 'E')));
                     }
                 }
                 bIonoAlpha = iono.alpha.size() == 4;
@@ -167,7 +238,7 @@ public class NasaEphemeris {
 
                 for (String value : strings) {
                     if (value.length() != 0) {
-                        iono.beta.add(value);
+                        iono.beta.add(new BigDecimal(value.replace('D', 'E')).longValue());
                     }
                 }
                 bIonoBeta = iono.beta.size() == 4;

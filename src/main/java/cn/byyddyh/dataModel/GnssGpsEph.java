@@ -111,4 +111,41 @@ public class GnssGpsEph {
         this.ttx = ttx;
         Fix_interval = fix_interval;
     }
+
+    @Override
+    public String toString() {
+        return "GnssGpsEph{" +
+                "PRN=" + PRN +
+                ",\n Toc=" + Toc +
+                ",\n af0=" + af0 +
+                ",\n af1=" + af1 +
+                ",\n af2=" + af2 +
+                ",\n IODE=" + IODE +
+                ",\n Crs=" + Crs +
+                ",\n Delta_n=" + Delta_n +
+                ",\n M0=" + M0 +
+                ",\n Cuc=" + Cuc +
+                ",\n e=" + e +
+                ",\n Cus=" + Cus +
+                ",\n Asqrt=" + Asqrt +
+                ",\n Toe=" + Toe +
+                ",\n Cic=" + Cic +
+                ",\n OMEGA=" + OMEGA +
+                ",\n Cis=" + Cis +
+                ",\n i0=" + i0 +
+                ",\n Crc=" + Crc +
+                ",\n omega=" + omega +
+                ",\n OMEGA_DOT=" + OMEGA_DOT +
+                ",\n IDOT=" + IDOT +
+                ",\n codeL2=" + codeL2 +
+                ",\n GPS_Week=" + GPS_Week +
+                ",\n L2Pdata=" + L2Pdata +
+                ",\n accuracy=" + accuracy +
+                ",\n health=" + health +
+                ",\n TGD=" + TGD +
+                ",\n IODC=" + IODC +
+                ",\n ttx=" + ttx +
+                ",\n Fix_interval=" + Fix_interval +
+                '}';
+    }
 }

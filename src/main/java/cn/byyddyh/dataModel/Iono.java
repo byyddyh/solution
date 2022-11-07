@@ -5,15 +5,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Iono {
-    public List<String> alpha;
-    public List<String> beta;
+    public List<BigDecimal> alpha;
+    public List<Long> beta;
 
     public Iono() {
         alpha = new ArrayList<>();
         beta = new ArrayList<>();
     }
 
-    public Iono(List<String> alpha, List<String> beta) {
+    public Iono(List<BigDecimal> alpha, List<Long> beta) {
         this.alpha = alpha;
         this.beta = beta;
     }
