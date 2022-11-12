@@ -1,14 +1,11 @@
 package cn.byyddyh.dataProcess;
 
-import cn.byyddyh.dataModel.GNSSRaw;
-import cn.byyddyh.dataModel.GnssGpsEph;
+import cn.byyddyh.dataModel.GNSSGpsEph;
 import cn.byyddyh.dataModel.Iono;
 import cn.byyddyh.dataModel.UtcTime;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -19,13 +16,13 @@ import java.util.List;
 
 public class NasaEphemeris {
 
-    private static GnssGpsEph gnssGpsEph;
+    private static GNSSGpsEph gnssGpsEph;
 
     static {
-        gnssGpsEph = new GnssGpsEph();
+        gnssGpsEph = new GNSSGpsEph();
     }
 
-    public static GnssGpsEph getNasaHourlyEphemeris(UtcTime utcTime, String dirName) throws IOException {
+    public static GNSSGpsEph getNasaHourlyEphemeris(UtcTime utcTime, String dirName) throws IOException {
         dirName = checkInputs(dirName);
         int yearNumber4Digit = utcTime.year;
         int yearNumber2Digit = yearNumber4Digit % 100;
@@ -128,7 +125,7 @@ public class NasaEphemeris {
 
             line = nasaLines.get(index++);
             gnssGpsEph.ttx.add((int) Double.parseDouble(line.substring(3, 22).replace('D', 'E').trim()));
-            gnssGpsEph.Fix_interval.add((int) Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
+            gnssGpsEph.Fit_interval.add((int) Double.parseDouble(line.substring(22, 41).replace('D', 'E').trim()));
         }
 
         return gnssGpsEph;

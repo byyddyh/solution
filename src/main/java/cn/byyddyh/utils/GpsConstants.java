@@ -1,5 +1,7 @@
 package cn.byyddyh.utils;
 
+import java.math.BigDecimal;
+
 public class GpsConstants {
     public final static double EARTHECCEN2 = 6.69437999014e-3;     // WGS 84 (Earth eccentricity)^2 (m^2)
     public final static long EARTHMEANRADIUS = 6371009;            // Mean R of ellipsoid(m) IU Gedosey& Geophysics
@@ -13,6 +15,7 @@ public class GpsConstants {
     // mean time of flight btwn closest GPS sat (~66 ms) & furthest (~84 ms):
     public final static double MEANTFLIGHTSECONDS = 75e-3;
     public final static double mu = 3.986005e14;                   // WGS-84 Universal gravitational parameter (m^3/sec^2)
+    public final static BigDecimal muBig = new BigDecimal("3.986005e14");
     public final static double WE = 7.2921151467e-5;               // WGS 84 value of earth's rotation rate (rad/s)
     public final static long WEEKSEC = 604800;                   // number of seconds in a week
 }

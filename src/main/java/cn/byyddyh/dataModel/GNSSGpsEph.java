@@ -1,10 +1,14 @@
 package cn.byyddyh.dataModel;
 
+import cn.byyddyh.utils.GpsConstants;
+import cn.byyddyh.utils.MathUtils;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-public class GnssGpsEph {
+public class GNSSGpsEph {
 
     public List<Integer> PRN;               /*SV PRN number*/
     public List<Integer> Toc;               /*Time of clock (seconds)*/
@@ -36,9 +40,9 @@ public class GnssGpsEph {
     public List<BigDecimal> TGD;            /*Group delay (seconds)*/
     public List<Integer> IODC;              /*Issue of Data, Clock */
     public List<Integer> ttx;               /*Transmission time of message (seconds)*/
-    public List<Integer> Fix_interval;      /*fit interval (hours), zero if not known*/
+    public List<Integer> Fit_interval;      /*fit interval (hours), zero if not known*/
 
-    public GnssGpsEph() {
+    public GNSSGpsEph() {
         this.PRN = new ArrayList<>();
         Toc = new ArrayList<>();
         this.af0 = new ArrayList<>();
@@ -69,10 +73,10 @@ public class GnssGpsEph {
         this.TGD = new ArrayList<>();
         this.IODC = new ArrayList<>();
         this.ttx = new ArrayList<>();
-        Fix_interval = new ArrayList<>();
+        Fit_interval = new ArrayList<>();
     }
 
-    public GnssGpsEph(List<Integer> PRN, List<Integer> toc, List<BigDecimal> af0, List<BigDecimal> af1,
+    public GNSSGpsEph(List<Integer> PRN, List<Integer> toc, List<BigDecimal> af0, List<BigDecimal> af1,
                       List<BigDecimal> af2, List<Integer> IODE, List<Double> crs, List<BigDecimal> delta_n,
                       List<Double> m0, List<BigDecimal> cuc, List<Double> e, List<BigDecimal> cus, List<BigDecimal> asqrt,
                       List<Integer> toe, List<BigDecimal> cic, List<Double> OMEGA, List<BigDecimal> cis, List<Double> i0,
@@ -109,7 +113,7 @@ public class GnssGpsEph {
         this.TGD = TGD;
         this.IODC = IODC;
         this.ttx = ttx;
-        Fix_interval = fix_interval;
+        Fit_interval = fix_interval;
     }
 
     @Override
@@ -145,7 +149,43 @@ public class GnssGpsEph {
                 ",\n TGD=" + TGD +
                 ",\n IODC=" + IODC +
                 ",\n ttx=" + ttx +
-                ",\n Fix_interval=" + Fix_interval +
+                ",\n Fix_interval=" + Fit_interval +
                 '}';
+    }
+
+    /**
+     * Calculate satellite clock bias
+     */
+    public static void gpsEph2Dtsv(GNSSGpsEph gpsEph, List<Double> tS) {
+        int pt = tS.size();
+        int p = gpsEph.PRN.size();
+        if (p > 1 && pt != p) {
+            throw new Error("If gpsEph is a vector tS must be a vector with #rows = length(gpsEph)");
+        }
+
+        // Calculate dependent variables
+        List<Double> MK = new ArrayList<>();
+        for (int i = 0; i < tS.size(); i++) {
+            double tk = tS.get(i) - gpsEph.Toe.get(i);
+            if (tk > 302400.0) {
+                tk = tk - GpsConstants.WEEKSEC;
+            } else if (tk < -302400.0) {
+                tk = tk + GpsConstants.WEEKSEC;
+            }
+
+            double no = Math.sqrt(GpsConstants.mu / gpsEph.Asqrt.get(i).pow(6).doubleValue());
+            double n = no + gpsEph.Delta_n.get(i).doubleValue();
+            MK.add(gpsEph.M0.get(i) + n * tk);
+        }
+        Double[] Ek = MathUtils.Kepler(MK, gpsEph.e);
+
+        // Calculate satellite clock bias (See ICD-GPS-200 20.3.3.3.3.1)
+
+    }
+
+    public static void main(String[] args) {
+        List<Double> mk = Arrays.asList(1.712257411040443, -2.860017312175392, 0.798477904040757, 0.449325337745797, -0.543676957533292, 0.287169903774706, -1.294070701791078, -0.520631742787847, 1.378303757967611);
+        List<Double> e = Arrays.asList(0.006097595789470, 0.006854743580330, 0.005299657816070, 0.013526534428800, 0.001851130160500, 0.005524867330680, 0.001584041747270, 0.011399894137900, 0.001972229802050);
+        System.out.println(Arrays.toString(MathUtils.Kepler(mk, e)));
     }
 }

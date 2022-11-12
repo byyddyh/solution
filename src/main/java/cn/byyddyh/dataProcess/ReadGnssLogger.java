@@ -35,8 +35,6 @@ public class ReadGnssLogger {
     }
 
     public static GNSSRaw ReadGnssLogger(String dirName, String fileName) throws Exception {
-        String extension = fileName.substring(fileName.length() - 3, fileName.length());
-
         if (!checkFileType(fileName)) {
             throw new Exception("Expecting file name of the form \"*.txt\", or \"*.csv");
         }

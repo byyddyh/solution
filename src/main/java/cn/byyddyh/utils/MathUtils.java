@@ -1,16 +1,47 @@
 package cn.byyddyh.utils;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * 工具类
  */
 public class MathUtils {
     private static final BigDecimal BIG_DECIMAL_TEMP = new BigDecimal("0.5");
+
+    /**
+     * ek = Kepler(mk,e)
+     *    Kepler - Solves Kepler's equation for ek through iteration.
+     */
+    public static Double[] Kepler(List<Double> mk, List<Double> e) {
+        double err;
+        Double[] ek = new Double[mk.size()];
+        for (int i = 0; i < mk.size(); i++) {
+            ek[i] = mk.get(i);
+        }
+
+        int iterCount = 0;
+        int maxIterCount = 20;
+        double minVal = 100;
+
+        while (Math.abs(minVal) > 1e-8 && iterCount < maxIterCount) {
+            for (int i = 0; i < mk.size(); i++) {
+                err = ek[i] - mk.get(i) - (e.get(i) * Math.sin(ek[i]));
+                if (i == 0) {
+                    minVal = err;
+                } else {
+                    minVal = Math.min(minVal, err);
+                }
+
+                ek[i] -= err;
+            }
+            iterCount = iterCount + 1;
+            if (iterCount == maxIterCount) {
+                System.out.println("Failed convergence on Kepler''s equation.");
+            }
+        }
+        return ek;
+    }
 
     /**
      * double 转换为 long
