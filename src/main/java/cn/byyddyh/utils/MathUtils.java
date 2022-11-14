@@ -10,6 +10,59 @@ public class MathUtils {
     private static final BigDecimal BIG_DECIMAL_TEMP = new BigDecimal("0.5");
 
     /**
+     * Compute rotated satellite ECEF coordinates caused by Earth rotation during signal flight time
+     */
+    public static void flightTimeCorrection(Double[] xE, double dTflightSeconds) {
+        // Rotation angle (radians)
+        double theta = GpsConstants.WE * dTflightSeconds;
+
+        // Apply rotation from IS GPS 200-E, 20.3.3.4.3.3.2
+        // Note: IS GPS 200-E shows the rotation from ecef to eci
+        // so our rotation R3, is in the opposite direction:
+        Double[][] R3 = {
+                {Math.cos(theta), Math.sin(theta), 0.0},
+                {-Math.sin(theta), Math.cos(theta), 0.0},
+                {0.0, 0.0, 1.0}
+        };
+
+    }
+
+    public static Double norm(Double[] data) {
+        double val = 0.0;
+        for (Double datum : data) {
+            val += Math.pow(datum, 2);
+        }
+
+        return Math.sqrt(val);
+    }
+
+    public static Double[][] generateDiag(Double d, List<List<Double>> prs, Integer index) {
+        List<Double> data = new ArrayList<>();
+        for (int i = 0; i < prs.size(); i++) {
+            data.add(1 / prs.get(i).get(index));
+        }
+        return diag(data);
+    }
+
+    /**
+     * 根据向量生成矩阵
+     */
+    public static Double[][] diag(List<Double> data) {
+        Double[][] matrix = new Double[data.size()][data.size()];
+        for (int i = 0; i < data.size(); i++) {
+            for (int j = 0; j < data.size(); j++) {
+                if (i == j) {
+                    matrix[i][j] = data.get(i);
+                } else {
+                    matrix[i][j] = 0.0;
+                }
+            }
+        }
+
+        return matrix;
+    }
+
+    /**
      * ek = Kepler(mk,e)
      *    Kepler - Solves Kepler's equation for ek through iteration.
      */

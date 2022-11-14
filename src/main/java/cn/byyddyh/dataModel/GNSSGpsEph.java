@@ -156,7 +156,7 @@ public class GNSSGpsEph {
     /**
      * Calculate satellite clock bias
      */
-    public static void gpsEph2Dtsv(GNSSGpsEph gpsEph, List<Double> tS) {
+    public static double[] gpsEph2Dtsv(GNSSGpsEph gpsEph, List<Double> tS) {
         int pt = tS.size();
         int p = gpsEph.PRN.size();
         if (p > 1 && pt != p) {
@@ -180,7 +180,20 @@ public class GNSSGpsEph {
         Double[] Ek = MathUtils.Kepler(MK, gpsEph.e);
 
         // Calculate satellite clock bias (See ICD-GPS-200 20.3.3.3.3.1)
+        double[] dtsvS = new double[tS.size()];
+        for (int i = 0; i < tS.size(); i++) {
+            double dt = tS.get(i) - gpsEph.Toc.get(i);
+            if (dt > 302400.00) {
+                dt = dt - GpsConstants.WEEKSEC;
+            } else if (dt < -302400.0){
+                dt = dt + GpsConstants.WEEKSEC;
+            }
 
+            dtsvS[i] = gpsEph.af0.get(i).doubleValue() + gpsEph.af1.get(i).doubleValue() * dt + gpsEph.af2.get(i).doubleValue() * dt * dt +
+                    GpsConstants.FREL * gpsEph.e.get(i) * gpsEph.Asqrt.get(i).doubleValue() * Math.sin(Ek[i]) - gpsEph.TGD.get(i).doubleValue();
+        }
+        System.out.println(Arrays.toString(dtsvS));
+        return dtsvS;
     }
 
     public static void main(String[] args) {
