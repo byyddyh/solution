@@ -3,12 +3,14 @@ package cn.byyddyh.dataProcess;
 import cn.byyddyh.dataModel.GNSSGpsEph;
 import cn.byyddyh.dataModel.GNSSMeas;
 import cn.byyddyh.dataModel.GpsPvt;
+import cn.byyddyh.dataModel.WlsVal;
 import cn.byyddyh.utils.GNSSThresholds;
 import cn.byyddyh.utils.GpsConstants;
 import cn.byyddyh.utils.MathUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -57,7 +59,6 @@ public class GNSSPosition {
 
             // 找到最接近最新鲜的星历数据
             GNSSGpsEph gpsEph = closestGpsEph(allGpsEph, svid, gnssMeas.FctSeconds.get(i));
-            System.out.println(gpsEph);
             // svid for which we have ephemeris
             List<Integer> idList = gpsEph.PRN;
             int size = idList.size();
@@ -90,7 +91,6 @@ public class GNSSPosition {
                 prs.add(data);
             }
 
-            System.out.println(prs);
 
             // initialize speed to zero
             for (int j = 4; j < 6; j++) {
@@ -98,7 +98,13 @@ public class GNSSPosition {
             }
 
             // compute WLS solution
-            wlsPvt(prs, gpsEph);
+            WlsVal wlsVal = wlsPvt(prs, gpsEph);
+            for (int j = 0; j < xo.length; j++) {
+                xo[i] += wlsVal.xHat[i];
+            }
+
+            // extract position states
+
         }
     }
 
@@ -190,7 +196,7 @@ public class GNSSPosition {
     /**
      * calculate a weighted least squares PVT solution, xHat given pseudoranges, pr rates, and initial state
      */
-    private static void wlsPvt(List<List<Double>> prs, GNSSGpsEph gpsEph) {
+    private static WlsVal wlsPvt(List<List<Double>> prs, GNSSGpsEph gpsEph) {
         if (!checkInputs(prs, gpsEph)) {
             throw new Error("inputs not right size, or not properly aligned with each other");
         }
@@ -207,10 +213,11 @@ public class GNSSPosition {
         }
         // 写下伪距离的等式，以看到rx时钟误差精确抵消，从而获得精确的GPS时间：我们从sv时间中减去卫星时钟误差，如下所述：
         double[] dtsvS = GNSSGpsEph.gpsEph2Dtsv(gpsEph, ttxSeconds);
+        int numVal = dtsvS.length;
 
         // 从sv时间中减去dtsv得到真实的gps时间
         List<Double> ttx = new ArrayList<>();
-        for (int i = 0; i < dtsvS.length; i++) {
+        for (int i = 0; i < numVal; i++) {
             ttx.add(ttxSeconds.get(i) - dtsvS[i]);
         }
 
@@ -231,13 +238,26 @@ public class GNSSPosition {
         Double[][] Wrr = MathUtils.generateDiag(1.0, prs, jPrrSig);
 
         // iterate on this next part till change in pos & line of sight vectors converge
-        Double[] xHat = new Double[4];
+        Double[] xHat = {0.0, 0.0, 0.0, 0.0};
         Double[] dx = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
         int whileCount = 0, maxWhileCount = 100;
+
+        // 负责向量
+        Double[] xyz0 = new Double[3];
+        Arrays.fill(xyz0, 0.0);
 
         // we expect the while loop to converge in < 10 iterations, even with initial
         // position on other side of the Earth (see Stanford course AA272C "Intro to GPS")
         double bc = xo[3];
+        Double[] ones = new Double[numVal];
+        double dtflight;
+        Double[] range = new Double[svXyzTrx.length];
+        Double[][] svPos = new Double[dtsv.size()][5];
+        double prHat;
+        Double[] zPr = new Double[svXyzTrx.length];
+        Double[][] H = new Double[svXyzTrx.length][4];
+        Double[][] v = new Double[3][svXyzTrx.length];
+
         while (MathUtils.norm(dx) > GNSSThresholds.MAXDELPOSFORNAVM) {
             whileCount++;
             if (whileCount >= maxWhileCount) {
@@ -246,14 +266,114 @@ public class GNSSPosition {
 
             for (int i = 0; i < gpsEph.Toe.size(); i++) {
                 // calculate tflight from, bc and dtsv
-                double dtflight = (prs.get(i).get(jPr) - bc) / GpsConstants.LIGHTSPEED + dtsv.get(i);
+                dtflight = (prs.get(i).get(jPr) - bc) / GpsConstants.LIGHTSPEED + dtsv.get(i);
                 // Use of bc: bc>0 <=> pr too big <=> tflight too big.
                 //        i.e. trx = trxu - bc/GpsConstants.LIGHTSPEED
                 // Use of dtsv: dtsv>0 <=> pr too small <=> tflight too small.
                 //        i.e ttx = ttxsv - dtsv
-                MathUtils.flightTimeCorrection(svXyzTtx.get(i), dtflight);
+                svXyzTrx[i] = MathUtils.flightTimeCorrection(svXyzTtx.get(i), dtflight);
             }
+
+            // calculate line of sight vectors and ranges from satellite to xo
+
+            Arrays.fill(ones, 1.0);
+            v = MathUtils.arrayMultipleArray(xyz0, ones);
+            MathUtils.matrixSub(v, svXyzTrx);
+
+            // 计算平均值
+            for (int i = 0; i < v[0].length; i++) {
+                range[i] = 0.0;
+                for (int j = 0; j < v.length; j++) {
+                    range[i] += Math.pow(v[j][i], 2);
+                }
+
+                range[i] = Math.sqrt(range[i]);
+            }
+
+            // 将range扩展成矩阵
+            for (int i = 0; i < v.length; i++) {
+                for (int j = 0; j < v[0].length; j++) {
+                    v[i][j] = v[i][j] / range[j];
+                }
+            }
+
+            // 构造 svPos
+            for (int i = 0; i < dtsv.size(); i++) {
+                svPos[i][0] = prs.get(i).get(2);
+                svPos[i][1] = svXyzTrx[i][0];
+                svPos[i][2] = svXyzTrx[i][1];
+                svPos[i][3] = svXyzTrx[i][2];
+                svPos[i][4] = dtsv.get(i);
+            }
+
+            // calculate the a-priori range residual
+            for (int i = 0; i < zPr.length; i++) {
+                prHat = range[i] + bc - GpsConstants.LIGHTSPEED * dtsv.get(i);
+                zPr[i] = prs.get(i).get(jPr) - prHat;
+            }
+
+            for (int i = 0; i < H.length; i++) {
+                H[i][0] = v[0][i];
+                H[i][1] = v[1][i];
+                H[i][2] = v[2][i];
+                H[i][3] = 1.0;
+            }
+
+            // z = Hx, premultiply by W: Wz = WHx, and solve for x
+            dx = solveX(Wpr, H, zPr);
+
+            // update xo, xhat and bc
+            for (int i = 0; i < xHat.length; i++) {
+                xHat[i] = xHat[i] + dx[i];
+                if (i < 3) {
+                    xyz0[i] = xyz0[i] + dx[i];
+                }
+            }
+            bc += dx[3];
+
+            // Now calculate the a-posteriori range residual
+            Double[] array = MathUtils.matrixMultipleArray(H, dx);
+            for (int i = 0; i < array.length; i++) {
+                zPr[i] -= array[i];
+            }
+
+            System.out.println("====================");
         }
+
+        // Compute velocities
+        double rrMps;
+        double prrHat;
+        Double[] zPrr = new Double[numVal];
+        for (int i = 0; i < dtsv.size(); i++) {
+            rrMps = 0.0;
+            for (int j = 0; j < svXyzDot.get(i).length; j++) {
+                rrMps -= svXyzDot.get(i)[j] * v[j][i];
+            }
+
+            prrHat = rrMps + xo[7] - GpsConstants.LIGHTSPEED * dtsvDot.get(i);
+            zPrr[i] = prs.get(i).get(jPrr) - prrHat;
+        }
+
+        // z = Hx, premultiply by W: Wz = WHx, and solve for x
+        Double[] vHat = solveX(Wrr, H, zPrr);
+
+        // 拼接xHat
+        Double[] arr = new Double[xHat.length + vHat.length];
+        int index = 0;
+        for (Double aDouble : xHat) {
+            arr[index++] = aDouble;
+        }
+        for (Double aDouble : vHat) {
+            arr[index++] = aDouble;
+        }
+
+        WlsVal wlsVal = new WlsVal();
+        wlsVal.xHat = arr;
+        wlsVal.H = H;
+        wlsVal.Wpr = Wpr;
+        wlsVal.Wrr = Wrr;
+
+        return wlsVal;
     }
 
     /**
@@ -282,7 +402,6 @@ public class GNSSPosition {
         // time - 0.5 seconds
         XyzNode xyzNodeMinus = gpsEph2Xyz(gpsEph, ttxWeek, t2);
 
-        System.out.println("=============");
         for (int i = 0; i < xyzNodePlus.xyzM.size(); i++) {
             Double[] xyz = new Double[3];
             for (int j = 0; j < 3; j++) {
@@ -292,7 +411,6 @@ public class GNSSPosition {
             xyzNode.vMps.add(xyz);
             xyzNode.dtsvSDot.add(xyzNodePlus.dtsvS.get(i) - xyzNodeMinus.dtsvS.get(i));
         }
-        System.out.println("=============");
         return xyzNode;
     }
 
@@ -434,11 +552,81 @@ public class GNSSPosition {
         return !(max - min > 0);
     }
 
-    public static void main(String[] args) {
-        System.out.println(Math.atan2(4, -3));
+    /**
+     * solve for x
+     */
+    private static Double[] solveX(Double[][] Wpr, Double[][] H, Double[] zPr) {
+        double[][] matrix = MathUtils.matrixMultipleArr(Wpr, H);
+        Matrix A = new Matrix(matrix);//构造矩阵
+        SingularValueDecomposition SVD = A.svd();
+        Double[][] X = svd(SVD.getU().getArray(), SVD.getS().getArray(), SVD.getV().getArray());
 
-        Double[] dx = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
-        System.out.println(MathUtils.norm(new Double[]{-2.0, -2.0}));
-        System.out.println(MathUtils.norm(dx) > GNSSThresholds.MAXDELPOSFORNAVM);
+        Double[][] tmp = MathUtils.matrixMultiple(X, Wpr);
+
+        return MathUtils.matrixMultipleArray(tmp, zPr);
+    }
+
+    public static Double[][] svd(double[][] U, double[][] S, double[][] V) {
+        // 获取维度
+        double[] s = new double[S.length];
+        double valSum = 0.0;
+        for (int i = 0; i < S.length; i++) {
+            s[i] = S[i][i];
+            valSum += Math.pow(S[i][i], 2);
+        }
+
+        // 计算有效索引
+        int r1 = 0;
+        int q = Math.max(S.length, S[0].length);
+        for (int i = 0; i < S.length; i++) {
+            if (s[i] > Double.MIN_NORMAL * q) {
+                r1++;
+            }
+        }
+
+        // 计算结果
+        Double[][] tmp = new Double[V.length][r1];
+        for (int i = 0; i < V.length; i++) {
+            for (int j = 0; j < r1; j++) {
+                tmp[i][j] = V[i][j] / s[j];
+            }
+        }
+
+        Double[][] X = new Double[tmp.length][U.length];
+        for (int i = 0; i < tmp.length; i++) {
+            for (int j = 0; j < U.length; j++) {
+                X[i][j] = 0.0;
+                for (int k = 0; k < r1; k++) {
+                    X[i][j] += tmp[i][k] * U[j][k];
+                }
+            }
+        }
+
+        return X;
+    }
+
+    public static void main(String[] args) {
+        long start = System.currentTimeMillis();
+        double[][] matrix = {
+                {0.430325249735182,	-0.118853947505311,	-0.166629405009141,	0.476520135997360},
+                {-0.168275933543814,	-0.113093219180739,	-0.157259070926247,	0.256587765537040},
+                {0.217982442189230,	-0.00499079183749675,	-0.299704773644194,	0.370626772442391},
+                {0.207105567064031,	-0.198987351233085,	-0.380240395212383,	0.476520135997360},
+                {0.0379800686476560,	-0.542992443928676,	-0.385715883317411,	0.667128190396304},
+                {0.663269338715613,	-0.0274285770636774,	0.0661927481032638,	0.667128190396304},
+                {-0.114151023635788,	-0.310312663925697,	-0.446928466787621,	0.555940158663587},
+                {0.379737139728944,	-0.535998157312412,	-0.116471895707189,	0.667128190396304},
+                {-0.00257690633557882,	-0.0279948566261915,	0.0134714218325025,	0.0311742145045002},
+        };
+        Matrix A = new Matrix(matrix);//构造矩阵
+        SingularValueDecomposition SVD = A.svd();
+        double[][] S = SVD.getS().getArray();
+        double[][] V = SVD.getV().getArray();
+        double[][] U = SVD.getU().getArray();
+
+
+        svd(U, S, V);
+        long end = System.currentTimeMillis();
+        System.out.println("cost:" + (end - start));
     }
 }

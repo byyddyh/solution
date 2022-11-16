@@ -65,17 +65,14 @@ public class UtcTime {
 
         checkUtcTimeInputs(utcTime);
         double[] julianDays = julianDay(utcTime);
-        System.out.println("julianDays: \t\t" + Arrays.toString(julianDays));
 
         for (int i = 0; i < julianDays.length; ++i) {
             int daysSinceEpoch = (int) (julianDays[i] - GpsConstants.GPSEPOCHJD);
             long gpsWeek = (long) (daysSinceEpoch / 7.0);
-            System.out.println("\t\tdaysSinceEpoch:" + daysSinceEpoch + "   gpsWeek:" + gpsWeek);
 
             int dayOfWeek = daysSinceEpoch % 7;
             // calculate the number of seconds since Sunday at midnight
             long gpsSeconds = dayOfWeek * GpsConstants.DAYSEC + utcTime[i].hour * HOURSEC + utcTime[i].minute * MINSEC + utcTime[i].sec;
-            System.out.println("\t\tgpsSeconds: " + gpsSeconds);
             gpsWeek = (int) (gpsWeek + gpsSeconds * 1.0 / GpsConstants.WEEKSEC);
             gpsSeconds = gpsSeconds % GpsConstants.WEEKSEC;
 
@@ -300,15 +297,11 @@ public class UtcTime {
                 new UtcTime(2023, 12, 25, 0, 0, 0),
                 new UtcTime(2050, 12, 28, 0, 0, 0)};
 
-        System.out.println(Arrays.toString(julianDay(utcTimes)));
-        System.out.println(Arrays.toString(utc2Gps(utcTimes)));
-
         int N = 30;
         UtcTime[] utcTimes1 = new UtcTime[30];
         for (int i = 0; i < N; i++) {
             UtcTime utcTime = new UtcTime(2050, 12, i+1, 0, 0, 0);
             utcTimes1[i] = utcTime;
         }
-        System.out.println(Arrays.toString(utc2Gps(utcTimes1)));
     }
 }

@@ -10,9 +10,137 @@ public class MathUtils {
     private static final BigDecimal BIG_DECIMAL_TEMP = new BigDecimal("0.5");
 
     /**
+     * 获取矩阵的逆
+     */
+    public static Double[][] inverse(Double[][] A) {
+        Double[][] B = new Double[A.length][A[0].length];
+        for (int i = 0; i < A.length; i++) {
+            System.arraycopy(A[i], 0, B[i], 0, A[0].length);
+        }
+        Double[][] C = new Double[A.length][A[0].length];
+        for (int i = 0; i < A.length; i++) {
+            for (int j = 0; j < A[0].length; j++) {
+                C[i][j] = (int) Math.pow(-1, i + j) * determinant(minor(B, j, i));
+            }
+        }
+        Double[][] D = new Double[A.length][A[0].length];
+        for (int i = 0; i < A.length; i++) {
+            for (int j = 0; j < A[0].length; j++) {
+                D[i][j] = C[i][j] / determinant(A);
+            }
+        }
+        return D;
+    }
+
+    /**
+     * 求解矩阵的行列式
+     */
+    private static Double determinant(Double[][] a) {
+        if (a.length == 1) {
+            return a[0][0];
+        }
+        double det = 0.0;
+        for (int i = 0; i < a[0].length; i++) {
+            det += (int) Math.pow(-1, i) * a[0][i] * determinant(minor(a, 0, i));
+        }
+        return det;
+    }
+
+    /**
+     * 求解二维矩阵在某一位置的伴随矩阵
+     */
+    private static Double[][] minor(Double[][] b, int i, int j) {
+        Double[][] a = new Double[b.length - 1][b[0].length - 1];
+        for (int x = 0, y = 0; x < b.length; x++) {
+            if (x == i) {
+                continue;
+            }
+            for (int m = 0, n = 0; m < b[0].length; m++) {
+                if (m == j) {
+                    continue;
+                }
+                a[y][n] = b[x][m];
+                n++;
+            }
+            y++;
+        }
+        return a;
+    }
+
+    public static double[][] matrixMultipleArr(Double[][] mat1, Double[][] mat2) {
+        double[][] res = new double[mat1.length][mat2[0].length];
+        for (int i = 0; i < res.length; i++) {
+            for (int j = 0; j < res[0].length; j++) {
+                res[i][j] = 0.0;
+                for (int k = 0; k < mat1[0].length; k++) {
+                    res[i][j] += mat1[i][k] * mat2[k][j];
+                }
+            }
+        }
+        return res;
+    }
+
+    /**
+     * 矩阵相乘
+     */
+    public static Double[][] matrixMultiple(Double[][] mat1, Double[][] mat2) {
+        Double[][] res = new Double[mat1.length][mat2[0].length];
+        for (int i = 0; i < res.length; i++) {
+            for (int j = 0; j < res[0].length; j++) {
+                res[i][j] = 0.0;
+                for (int k = 0; k < mat1[0].length; k++) {
+                    res[i][j] += mat1[i][k] * mat2[k][j];
+                }
+            }
+        }
+        return res;
+    }
+
+    /**
+     * 矩阵相减
+     */
+    public static void matrixSub(Double[][] v, Double[][] svXyzTrx) {
+        for (int i = 0; i < v.length; i++) {
+            for (int j = 0; j < svXyzTrx.length; j++) {
+                v[i][j] = v[i][j] - svXyzTrx[j][i];
+            }
+        }
+    }
+
+    /**
+     * 向量 * 向量得到矩阵
+     */
+    public static Double[][] arrayMultipleArray(Double[] arr1, Double[] arr2) {
+        Double[][] res = new Double[arr1.length][arr2.length];
+
+        for (int i = 0; i < arr1.length; i++) {
+            for (int j = 0; j < arr2.length; j++) {
+                res[i][j] = arr1[i] * arr2[j];
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * 矩阵乘数组
+     */
+    public static Double[] matrixMultipleArray(Double[][] matrix, Double[] array) {
+        Double[] res = new Double[matrix.length];
+        for (int i = 0; i < res.length; i++) {
+            res[i] = 0.0;
+            for (int j = 0; j < array.length; j++) {
+                res[i] += matrix[i][j] * array[j];
+            }
+        }
+
+        return res;
+    }
+
+    /**
      * Compute rotated satellite ECEF coordinates caused by Earth rotation during signal flight time
      */
-    public static void flightTimeCorrection(Double[] xE, double dTflightSeconds) {
+    public static Double[] flightTimeCorrection(Double[] xE, double dTflightSeconds) {
         // Rotation angle (radians)
         double theta = GpsConstants.WE * dTflightSeconds;
 
@@ -25,6 +153,8 @@ public class MathUtils {
                 {0.0, 0.0, 1.0}
         };
 
+        Double[] xERot = MathUtils.matrixMultipleArray(R3, xE);
+        return xERot;
     }
 
     public static Double norm(Double[] data) {
@@ -64,7 +194,7 @@ public class MathUtils {
 
     /**
      * ek = Kepler(mk,e)
-     *    Kepler - Solves Kepler's equation for ek through iteration.
+     * Kepler - Solves Kepler's equation for ek through iteration.
      */
     public static Double[] Kepler(List<Double> mk, List<Double> e) {
         double err;

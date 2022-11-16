@@ -258,29 +258,6 @@ public class ReadGnssLogger {
                 gnssRaw.AgcDb.add("".equals(strings[28])? null: Double.parseDouble(strings[28]));
             }
             System.out.println(preLine);
-            System.out.println(gnssRaw.TimeUncertaintyNanos.size());
-            System.out.println(gnssRaw.FullBiasNanos.size());
-            System.out.println(gnssRaw.BiasNanos.size());
-            System.out.println(gnssRaw.BiasUncertaintyNanos.size());
-            System.out.println(gnssRaw.DriftNanosPerSecond.size());
-            System.out.println(gnssRaw.DriftUncertaintyNanosPerSecond.size());
-            System.out.println(gnssRaw.HardwareClockDiscontinuityCount.size());
-            System.out.println(gnssRaw.Svid.size());
-            System.out.println(gnssRaw.TimeOffsetNanos.size());
-            System.out.println(gnssRaw.State.size());
-            System.out.println(gnssRaw.ReceivedSvTimeNanos.size());
-            System.out.println(gnssRaw.ReceivedSvTimeUncertaintyNanos.size());
-            System.out.println(gnssRaw.Cn0DbHz.size());
-            System.out.println(gnssRaw.PseudorangeRateMetersPerSecond.size());
-            System.out.println(gnssRaw.PseudorangeRateUncertaintyMetersPerSecond.size());
-            System.out.println(gnssRaw.AccumulatedDeltaRangeState.size());
-            System.out.println(gnssRaw.AccumulatedDeltaRangeMeters.size());
-            System.out.println(gnssRaw.AccumulatedDeltaRangeUncertaintyMeters.size());
-            System.out.println(gnssRaw.CarrierFrequencyHz.size());
-            System.out.println(gnssRaw.CarrierCycles.size());
-            System.out.println(gnssRaw.MultipathIndicator.size());
-            System.out.println(gnssRaw.ConstellationType.size());
-            System.out.println(gnssRaw.AgcDb.size());
         } catch (IOException e) {
             e.printStackTrace();
         }
