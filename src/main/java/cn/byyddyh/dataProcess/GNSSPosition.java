@@ -46,6 +46,7 @@ public class GNSSPosition {
         loadMap(allGpsEph);
 
         gpsPvt.FctSeconds = gnssMeas.FctSeconds;
+        Double[] tmp = new Double[3];
 
         for (int i = 0; i < N; i++) {
             List<Integer> svid = new ArrayList<>();
@@ -93,19 +94,35 @@ public class GNSSPosition {
 
 
             // initialize speed to zero
-            for (int j = 4; j < 6; j++) {
+            for (int j = 4; j < 7; j++) {
                 xo[j] = 0;
             }
 
             // compute WLS solution
-            WlsVal wlsVal = wlsPvt(prs, gpsEph);
+            WlsVal wlsVal = wlsPvt(prs, gpsEph, xo);
             for (int j = 0; j < xo.length; j++) {
-                xo[i] += wlsVal.xHat[i];
+                xo[j] += wlsVal.xHat[j];
             }
 
             // extract position states
+            for (int j = 0; j < tmp.length; j++) {
+                tmp[j] = xo[j];
+            }
+            Double[] llaDegDegM = PositionTrans.Xyz2Lla(tmp);
+            gpsPvt.allLlaDegDegM.add(llaDegDegM);
+            gpsPvt.allBcMeters.add(xo[4]);
 
+            // extract velocity states
+            Double[][] RE2N = PositionTrans.RotEcef2Ned(llaDegDegM[0], llaDegDegM[1]);
+
+            for (int j = 0; j < tmp.length; j++) {
+                tmp[j] = xo[4 + j];
+            }
+            Double[] vNed = MathUtils.matrixMultipleArray(RE2N, tmp);
+            gpsPvt.allVelMps.add(vNed);
+            gpsPvt.allBcDotMps.add(xo[7]);
         }
+        System.out.println("===========================");
     }
 
     private static void loadMap(GNSSGpsEph allGpsEph) {
@@ -196,20 +213,20 @@ public class GNSSPosition {
     /**
      * calculate a weighted least squares PVT solution, xHat given pseudoranges, pr rates, and initial state
      */
-    private static WlsVal wlsPvt(List<List<Double>> prs, GNSSGpsEph gpsEph) {
+    private static WlsVal wlsPvt(List<List<Double>> prs, GNSSGpsEph gpsEph, double[] xo) {
         if (!checkInputs(prs, gpsEph)) {
             throw new Error("inputs not right size, or not properly aligned with each other");
         }
 
         List<Double> ttxSeconds = new ArrayList<>();
         List<Double> ttxWeek = new ArrayList<>();
-        for (int i = 0; i < prs.size(); i++) {
+        for (List<Double> pr : prs) {
             // week of tx. Note - we could get a rollover, when ttx_sv goes negative, and it is handled in GpsEph2Pvt, where we work with fct
             // 注意：当ttx_sv变为负值时，我们可能会发生滚动，它在GpsEph2Pvt中处理，我们在这里使用fct
-            ttxWeek.add(prs.get(i).get(jWk));
+            ttxWeek.add(pr.get(jWk));
             // ttx by sv clock, this is accurate satellite time of tx, because we use actual pseudo-ranges
             // 这是精确的tx卫星时间，因为我们在这里使用实际的伪距离，而不是校正的距离。
-            ttxSeconds.add(prs.get(i).get(jSec) - prs.get(i).get(jPr) / GpsConstants.LIGHTSPEED);
+            ttxSeconds.add(pr.get(jSec) - pr.get(jPr) / GpsConstants.LIGHTSPEED);
         }
         // 写下伪距离的等式，以看到rx时钟误差精确抵消，从而获得精确的GPS时间：我们从sv时间中减去卫星时钟误差，如下所述：
         double[] dtsvS = GNSSGpsEph.gpsEph2Dtsv(gpsEph, ttxSeconds);
@@ -228,8 +245,8 @@ public class GNSSPosition {
         List<Double[]> svXyzDot = xyzNode.vMps;
         List<Double> dtsvDot = xyzNode.dtsvSDot;
 
-        Double[][] svXyzTrx = new Double[svXyzTtx.size()][svXyzTtx.get(0).length];
-        for (int i = 0; i < svXyzTtx.size(); i++) {
+        Double[][] svXyzTrx = new Double[numVal][svXyzTtx.get(0).length];
+        for (int i = 0; i < numVal; i++) {
             System.arraycopy(svXyzTtx.get(i), 0, svXyzTrx[i], 0, svXyzTtx.get(i).length);
         }
 
@@ -243,17 +260,19 @@ public class GNSSPosition {
         int whileCount = 0, maxWhileCount = 100;
 
         // 负责向量
-        Double[] xyz0 = new Double[3];
-        Arrays.fill(xyz0, 0.0);
+        Double[] xyz0 = new Double[]{xo[0], xo[1], xo[2]};
 
         // we expect the while loop to converge in < 10 iterations, even with initial
         // position on other side of the Earth (see Stanford course AA272C "Intro to GPS")
+        for (int i = 4; i < 6; i++) {
+            xo[i] = 0;
+        }
         double bc = xo[3];
-        Double[] ones = new Double[numVal];
         double dtflight;
-        Double[] range = new Double[svXyzTrx.length];
-        Double[][] svPos = new Double[dtsv.size()][5];
         double prHat;
+        Double[] ones = new Double[numVal];
+        Arrays.fill(ones, 1.0);
+        Double[] range = new Double[svXyzTrx.length];
         Double[] zPr = new Double[svXyzTrx.length];
         Double[][] H = new Double[svXyzTrx.length][4];
         Double[][] v = new Double[3][svXyzTrx.length];
@@ -275,8 +294,6 @@ public class GNSSPosition {
             }
 
             // calculate line of sight vectors and ranges from satellite to xo
-
-            Arrays.fill(ones, 1.0);
             v = MathUtils.arrayMultipleArray(xyz0, ones);
             MathUtils.matrixSub(v, svXyzTrx);
 
@@ -295,15 +312,6 @@ public class GNSSPosition {
                 for (int j = 0; j < v[0].length; j++) {
                     v[i][j] = v[i][j] / range[j];
                 }
-            }
-
-            // 构造 svPos
-            for (int i = 0; i < dtsv.size(); i++) {
-                svPos[i][0] = prs.get(i).get(2);
-                svPos[i][1] = svXyzTrx[i][0];
-                svPos[i][2] = svXyzTrx[i][1];
-                svPos[i][3] = svXyzTrx[i][2];
-                svPos[i][4] = dtsv.get(i);
             }
 
             // calculate the a-priori range residual
@@ -336,8 +344,6 @@ public class GNSSPosition {
             for (int i = 0; i < array.length; i++) {
                 zPr[i] -= array[i];
             }
-
-            System.out.println("====================");
         }
 
         // Compute velocities

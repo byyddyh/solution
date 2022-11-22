@@ -108,7 +108,7 @@ public class PseudorangeProcess {
         int endIndex = 0;
         for (int i = 0; i < N; i++) {
             // get index of measurements within 1ms of this time tag
-            for (; endIndex < gnssMeas.FctSeconds.size(); endIndex++) {
+            for (; endIndex < gnssRaw.allRxMillis.size(); endIndex++) {
                 if (Math.abs(gnssMeas.FctSeconds.get(i).doubleValue() * 1000 - gnssRaw.allRxMillis.get(endIndex)) >= 1) {
                     break;
                 }

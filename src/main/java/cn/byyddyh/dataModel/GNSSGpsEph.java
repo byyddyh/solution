@@ -192,7 +192,6 @@ public class GNSSGpsEph {
             dtsvS[i] = gpsEph.af0.get(i).doubleValue() + gpsEph.af1.get(i).doubleValue() * dt + gpsEph.af2.get(i).doubleValue() * dt * dt +
                     GpsConstants.FREL * gpsEph.e.get(i) * gpsEph.Asqrt.get(i).doubleValue() * Math.sin(Ek[i]) - gpsEph.TGD.get(i).doubleValue();
         }
-        System.out.println(Arrays.toString(dtsvS));
         return dtsvS;
     }
 

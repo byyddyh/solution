@@ -39,7 +39,6 @@ public class NasaEphemeris {
         /**
          * check if ephemeris file already exists (e.g. you downloaded it 'by hand') and if there are fresh ephemeris for lotsa sats within 2 hours of fctSeconds
          */
-        boolean bGotGpsEph = false;
         File file = new File(fullEphFilename);
         if (!file.isFile()) {
             throw new Error("Error in GetNasaHourlyEphemeris" + ephFilename);
@@ -247,25 +246,5 @@ public class NasaEphemeris {
         }
 
         return iono;
-    }
-
-    public static void main(String[] args) {
-        String str = "    0.5588D-08  0.1490D-07 -0.5960D-07 -0.1192D-06          ION ALPHA";
-        int i1 = str.indexOf("ION ALPHA");
-        System.out.println("i1: " + i1);
-
-        String substring = str.substring(0, i1);
-        System.out.println(substring);
-        String[] s = substring.split(" ");
-        System.out.println(Arrays.toString(s));
-
-        List<String> list = new ArrayList<>();
-        for (String value : s) {
-            if (value.length() != 0) {
-                System.out.println(value);
-                list.add(value);
-            }
-        }
-        System.out.println(list);
     }
 }
